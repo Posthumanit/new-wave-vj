@@ -1,0 +1,98 @@
+import { GoogleGenAI } from '@google/genai'
+import type { MoodData } from '../types'
+
+const DEFAULT_MOOD: MoodData = {
+  mood: 'energetic',
+  energy: 0.7,
+  genre: 'electronic',
+  colors: ['#ff0080', '#00ffff', '#8000ff'],
+  description: 'High-energy electronic music with pulsing synthesizers',
+  imagePrompt:
+    'Abstract psychedelic digital art, neon pink and cyan laser beams, fractal geometry, music visualizer aesthetic, dark background, 80s synthwave',
+}
+
+export async function analyzeMood(
+  apiKey: string,
+  input: string,
+): Promise<MoodData> {
+  const ai = new GoogleGenAI({ apiKey })
+
+  const prompt = `You are a music mood analyzer. Analyze this music reference: "${input}"
+
+This could be a YouTube URL, song title, artist name, or description. Use your knowledge to determine the musical characteristics.
+
+Respond with ONLY a valid JSON object — no markdown, no explanation — in this exact shape:
+{
+  "mood": "one of: euphoric|melancholic|aggressive|dreamy|energetic|dark|uplifting|hypnotic",
+  "energy": 0.85,
+  "genre": "one of: electronic|rock|pop|jazz|classical|hip-hop|ambient|metal|synthwave|house|techno",
+  "colors": ["#hex1", "#hex2", "#hex3"],
+  "description": "One sentence describing the musical atmosphere",
+  "imagePrompt": "Detailed visual description for abstract psychedelic background art that matches this music"
+}
+
+The colors array must contain exactly 3 hex color values that evoke the mood. The imagePrompt should describe surreal, abstract, generative-art style visuals suitable for a VJ performance — no text, no people, no realistic objects.`
+
+  try {
+    const result = await ai.models.generateContent({
+      model: 'gemini-2.0-flash',
+      contents: prompt,
+    })
+
+    const text = result.text ?? ''
+    const jsonMatch = text.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) throw new Error('No JSON in response')
+
+    const parsed = JSON.parse(jsonMatch[0]) as Partial<MoodData>
+
+    return {
+      mood: parsed.mood ?? DEFAULT_MOOD.mood,
+      energy: typeof parsed.energy === 'number' ? parsed.energy : DEFAULT_MOOD.energy,
+      genre: parsed.genre ?? DEFAULT_MOOD.genre,
+      colors: Array.isArray(parsed.colors) && parsed.colors.length >= 3
+        ? [parsed.colors[0], parsed.colors[1], parsed.colors[2]]
+        : DEFAULT_MOOD.colors,
+      description: parsed.description ?? DEFAULT_MOOD.description,
+      imagePrompt: parsed.imagePrompt ?? DEFAULT_MOOD.imagePrompt,
+    }
+  } catch {
+    return DEFAULT_MOOD
+  }
+}
+
+export async function generateImage(
+  apiKey: string,
+  prompt: string,
+): Promise<string | null> {
+  const ai = new GoogleGenAI({ apiKey })
+
+  try {
+    const result = await ai.models.generateImages({
+      model: 'imagen-3.0-generate-002',
+      prompt: `${prompt}. Abstract art, no text, no people, psychedelic music visualizer background, high quality`,
+      config: {
+        numberOfImages: 1,
+        aspectRatio: '16:9',
+        outputMimeType: 'image/jpeg',
+      },
+    })
+
+    const imageBytes = result.generatedImages?.[0]?.image?.imageBytes
+    if (!imageBytes) return null
+
+    if (typeof imageBytes === 'string') {
+      return `data:image/jpeg;base64,${imageBytes}`
+    }
+
+    // Uint8Array path
+    const bytes = new Uint8Array(imageBytes as unknown as ArrayBuffer)
+    let binary = ''
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i])
+    }
+    return `data:image/jpeg;base64,${btoa(binary)}`
+  } catch (err) {
+    console.warn('Imagen generation failed:', err)
+    return null
+  }
+}

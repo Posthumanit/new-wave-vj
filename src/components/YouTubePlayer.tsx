@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, forwardRef, useImperativeHandle } from 'react'
 
 /* Minimal YouTube IFrame API types */
 interface YTPlayer {
@@ -43,14 +43,25 @@ function loadYTApi(): Promise<void> {
   })
 }
 
+export interface YouTubePlayerHandle {
+  play(): void
+  pause(): void
+}
+
 interface Props {
   videoId: string
   onPlayingChange?: (playing: boolean) => void
 }
 
-export function YouTubePlayer({ videoId, onPlayingChange }: Props) {
+export const YouTubePlayer = forwardRef<YouTubePlayerHandle, Props>(
+  function YouTubePlayer({ videoId, onPlayingChange }, ref) {
   const divRef = useRef<HTMLDivElement>(null)
   const playerRef = useRef<YTPlayer | null>(null)
+
+  useImperativeHandle(ref, () => ({
+    play() { playerRef.current?.playVideo() },
+    pause() { playerRef.current?.pauseVideo() },
+  }))
 
   useEffect(() => {
     if (!divRef.current) return
@@ -93,4 +104,4 @@ export function YouTubePlayer({ videoId, onPlayingChange }: Props) {
       <div ref={divRef} style={{ width: '100%', height: '100%' }} />
     </div>
   )
-}
+})

@@ -4,7 +4,7 @@ import { URLInput } from './components/URLInput'
 import { AudioUpload } from './components/AudioUpload'
 import { Visualizer } from './components/Visualizer'
 import { Controls } from './components/Controls'
-import { YouTubePlayer } from './components/YouTubePlayer'
+import { YouTubePlayer, type YouTubePlayerHandle } from './components/YouTubePlayer'
 import { useAudioAnalyzer } from './hooks/useAudioAnalyzer'
 import { generateImage } from './lib/gemini'
 import { BpmSimulator } from './lib/bpmSimulator'
@@ -30,6 +30,7 @@ export default function App() {
 
   const [mode, setMode] = useState<VisualMode>(0)
   const [error, setError] = useState('')
+  const ytRef = useRef<YouTubePlayerHandle | null>(null)
 
   const { data: realAudioData, toggle: toggleAudio } = useAudioAnalyzer(audioSource)
 
@@ -101,11 +102,17 @@ export default function App() {
           <Controls
             mode={mode} onMode={setMode}
             isPlaying={audioData.isPlaying}
-            onToggle={audioSource ? toggleAudio : () => setUseBpm((v) => !v)}
+            onToggle={audioSource ? toggleAudio : () => {
+              setUseBpm((v) => {
+                if (v) ytRef.current?.pause()
+                else ytRef.current?.play()
+                return !v
+              })
+            }}
             onReset={handleReset} songName={songName}
           />
-          {useBpm && !audioSource && videoId && (
-            <YouTubePlayer videoId={videoId} />
+          {!audioSource && videoId && (
+            <YouTubePlayer ref={ytRef} videoId={videoId} />
           )}
         </div>
       )}

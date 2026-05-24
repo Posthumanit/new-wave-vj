@@ -15,6 +15,12 @@ export class BpmSimulator {
     this.startTime = performance.now()
   }
 
+  reset() {
+    this.startTime = performance.now()
+    this.beat = 0
+    this.prevPhase = 0
+  }
+
   getData(isActive: boolean): AudioData {
     if (!isActive) return SILENT
 

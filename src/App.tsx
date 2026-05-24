@@ -31,14 +31,24 @@ export default function App() {
   const [mode, setMode] = useState<VisualMode>(0)
   const [error, setError] = useState('')
   const ytRef = useRef<YouTubePlayerHandle | null>(null)
+  const ytPlayingRef = useRef(false)
 
   const { data: realAudioData, toggle: toggleAudio } = useAudioAnalyzer(audioSource)
 
+  const handleYtPlaying = useCallback((playing: boolean) => {
+    if (playing && !ytPlayingRef.current) {
+      // YouTube just resumed — reset BPM clock so visuals sync from this moment
+      bpmRef.current?.reset()
+    }
+    ytPlayingRef.current = playing
+  }, [])
+
   useEffect(() => {
     if (!useBpm || !moodData) return
+    ytPlayingRef.current = false
     bpmRef.current = new BpmSimulator(moodData.bpm, moodData.energy)
     const tick = () => {
-      setBpmData(bpmRef.current!.getData(true))
+      setBpmData(bpmRef.current!.getData(ytPlayingRef.current))
       bpmRafRef.current = requestAnimationFrame(tick)
     }
     bpmRafRef.current = requestAnimationFrame(tick)
@@ -112,7 +122,7 @@ export default function App() {
             onReset={handleReset} songName={songName}
           />
           {!audioSource && videoId && (
-            <YouTubePlayer ref={ytRef} videoId={videoId} />
+            <YouTubePlayer ref={ytRef} videoId={videoId} onPlayingChange={handleYtPlaying} />
           )}
         </div>
       )}

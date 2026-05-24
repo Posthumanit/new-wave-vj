@@ -4,6 +4,7 @@ import { URLInput } from './components/URLInput'
 import { AudioUpload } from './components/AudioUpload'
 import { Visualizer } from './components/Visualizer'
 import { Controls } from './components/Controls'
+import { YouTubePlayer } from './components/YouTubePlayer'
 import { useAudioAnalyzer } from './hooks/useAudioAnalyzer'
 import { generateImage } from './lib/gemini'
 import { BpmSimulator } from './lib/bpmSimulator'
@@ -21,6 +22,7 @@ export default function App() {
   const [bgGenerating, setBgGenerating] = useState(false)
 
   const [audioSource, setAudioSource] = useState<Blob | null>(null)
+  const [videoId, setVideoId] = useState<string | null>(null)
   const [useBpm, setUseBpm] = useState(false)
   const [bpmData, setBpmData] = useState<AudioData>(SILENT)
   const bpmRef = useRef<BpmSimulator | null>(null)
@@ -51,14 +53,19 @@ export default function App() {
   }
 
   const handleResult = useCallback(
-    (mood: MoodData, audioBlob: Blob | null, _videoId: string | null) => {
+    (mood: MoodData, audioBlob: Blob | null, vid: string | null) => {
       setMoodData(mood)
       setBgImage(null)
       setAudioSource(null)
+      setVideoId(vid)
       setUseBpm(false)
 
       if (audioBlob) {
         setAudioSource(audioBlob)
+        setAppState('playing')
+      } else if (vid) {
+        // Cobalt failed but we have a YouTube video ID — play BPM visuals + embedded player
+        setUseBpm(true)
         setAppState('playing')
       } else {
         setAppState('ready')
@@ -78,7 +85,7 @@ export default function App() {
   const handlePlayBpmOnly = () => { setUseBpm(true); setAppState('playing') }
   const handleReset = () => {
     setAudioSource(null); setUseBpm(false); setMoodData(null)
-    setBgImage(null); setError(''); setAppState('input')
+    setBgImage(null); setError(''); setVideoId(null); setAppState('input')
   }
 
   const isPlaying = appState === 'playing'
@@ -97,6 +104,9 @@ export default function App() {
             onToggle={audioSource ? toggleAudio : () => setUseBpm((v) => !v)}
             onReset={handleReset} songName={songName}
           />
+          {useBpm && !audioSource && videoId && (
+            <YouTubePlayer videoId={videoId} />
+          )}
         </div>
       )}
 
@@ -141,9 +151,9 @@ export default function App() {
 
               <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <div>
-                  <p className="label">Audio couldn't be auto-fetched</p>
+                  <p className="label">Upload audio to sync visuals</p>
                   <p style={{ fontSize: 12, color: 'var(--text-dim)', lineHeight: 1.5 }}>
-                    This happens when a song name was entered or the download service was unavailable. Upload an audio file, or launch with BPM-synced visuals only.
+                    Upload the audio file for real-time beat detection, or launch with BPM-synced visuals only.
                   </p>
                 </div>
                 <AudioUpload onFile={handleAudioFile} />

@@ -75,8 +75,8 @@ export default function App() {
         setAudioSource(audioBlob)
         setAppState('playing')
       } else if (vid) {
-        // Cobalt failed but we have a YouTube video ID — play BPM visuals + embedded player
-        setUseBpm(true)
+        // Cobalt failed — YouTube embedded player + BPM visuals, starts paused until user presses play
+        setUseBpm(false)
         setAppState('playing')
       } else {
         setAppState('ready')
@@ -111,7 +111,7 @@ export default function App() {
           <Visualizer audioData={audioData} moodData={moodData} backgroundImage={bgImage} mode={mode} />
           <Controls
             mode={mode} onMode={setMode}
-            isPlaying={audioData.isPlaying}
+            isPlaying={audioSource ? audioData.isPlaying : useBpm}
             onToggle={audioSource ? toggleAudio : () => {
               setUseBpm((v) => {
                 if (v) ytRef.current?.pause()

@@ -72,7 +72,7 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, Props>(
       if (!active || !div) return
       playerRef.current = new window.YT.Player(div, {
         videoId,
-        playerVars: { autoplay: 1, rel: 0, modestbranding: 1 },
+        playerVars: { autoplay: 0, rel: 0, modestbranding: 1 },
         events: {
           onStateChange: (e) => onPlayingChange?.(e.data === 1),
         },

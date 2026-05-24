@@ -14,9 +14,11 @@ interface Props {
   onToggle: () => void
   onReset: () => void
   songName: string
+  micActive?: boolean
+  onMic?: () => void
 }
 
-export function Controls({ mode, onMode, isPlaying, onToggle, onReset, songName }: Props) {
+export function Controls({ mode, onMode, isPlaying, onToggle, onReset, songName, micActive, onMic }: Props) {
   return (
     <div
       style={{
@@ -79,6 +81,16 @@ export function Controls({ mode, onMode, isPlaying, onToggle, onReset, songName 
         >
           {isPlaying ? '⏸' : '▶'}
         </button>
+        {onMic && (
+          <button
+            className={`btn ${micActive ? 'btn-primary' : 'btn-ghost'}`}
+            onClick={onMic}
+            title={micActive ? 'Stop microphone' : 'Use microphone input'}
+            style={{ fontSize: 18, padding: '12px 16px' }}
+          >
+            🎤
+          </button>
+        )}
       </div>
     </div>
   )

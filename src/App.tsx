@@ -6,6 +6,7 @@ import { Visualizer } from './components/Visualizer'
 import { Controls } from './components/Controls'
 import { YouTubePlayer, type YouTubePlayerHandle } from './components/YouTubePlayer'
 import { useAudioAnalyzer } from './hooks/useAudioAnalyzer'
+import { useMicAnalyzer } from './hooks/useMicAnalyzer'
 import { generateImage } from './lib/gemini'
 import { BpmSimulator } from './lib/bpmSimulator'
 import type { AppState, AudioData, MoodData, VisualMode } from './types'
@@ -34,6 +35,7 @@ export default function App() {
   const ytPlayingRef = useRef(false)
 
   const { data: realAudioData, toggle: toggleAudio } = useAudioAnalyzer(audioSource)
+  const { data: micData, active: micActive, toggle: toggleMic, error: micError } = useMicAnalyzer()
 
   const handleYtPlaying = useCallback((playing: boolean) => {
     if (playing && !ytPlayingRef.current) {
@@ -55,7 +57,7 @@ export default function App() {
     return () => { cancelAnimationFrame(bpmRafRef.current); bpmRef.current = null }
   }, [useBpm, moodData])
 
-  const audioData = audioSource ? realAudioData : useBpm ? bpmData : SILENT
+  const audioData = micActive ? micData : audioSource ? realAudioData : useBpm ? bpmData : SILENT
 
   const handleApiKey = (key: string) => {
     localStorage.setItem('nwvj-api-key', key)
@@ -99,7 +101,7 @@ export default function App() {
     setBgImage(null); setError(''); setVideoId(null); setAppState('input')
   }
 
-  const isPlaying = appState === 'playing'
+  const isPlaying = appState === 'playing' || micActive
   const songName = audioSource instanceof File
     ? audioSource.name.replace(/\.[^.]+$/, '')
     : (moodData?.description ?? '')
@@ -120,6 +122,7 @@ export default function App() {
               })
             }}
             onReset={handleReset} songName={songName}
+            micActive={micActive} onMic={() => void toggleMic()}
           />
           {!audioSource && videoId && (
             <YouTubePlayer ref={ytRef} videoId={videoId} onPlayingChange={handleYtPlaying} />
@@ -139,6 +142,15 @@ export default function App() {
           {appState === 'input' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 480, width: '100%', margin: '0 auto' }}>
               <URLInput apiKey={apiKey} onResult={handleResult} onError={handleAnalysisError} />
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>OR</span>
+                <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+              </div>
+              <button className="btn btn-secondary" onClick={() => void toggleMic()}>
+                🎤 USE MICROPHONE
+              </button>
+              {micError && <p style={{ fontSize: 12, color: 'var(--error, #ff4466)', textAlign: 'center' }}>{micError}</p>}
               <button className="btn btn-ghost"
                 onClick={() => { localStorage.removeItem('nwvj-api-key'); setApiKey(''); setAppState('api-key') }}
                 style={{ maxWidth: 480, margin: '0 auto', width: '100%', fontSize: 11 }}>

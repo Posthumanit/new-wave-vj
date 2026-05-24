@@ -213,7 +213,7 @@ export class ThreeScene {
   private audioData: AudioData = { bass: 0, mid: 0, treble: 0, beat: 0, isPlaying: false }
 
   constructor(canvas: HTMLCanvasElement) {
-    this.clock = new THREE.Clock()
+    this.clock = new THREE.Clock(false)
 
     // Renderer
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false })
@@ -234,8 +234,6 @@ export class ThreeScene {
     this.resizeObserver = new ResizeObserver(() => this.resize(canvas))
     this.resizeObserver.observe(canvas.parentElement ?? canvas)
     this.resize(canvas)
-
-    this.animate()
   }
 
   private buildGeometry(): THREE.BufferGeometry {
@@ -334,6 +332,13 @@ export class ThreeScene {
 
   updateAudio(data: AudioData) {
     this.audioData = data
+    if (data.isPlaying && this.rafId === 0) {
+      this.clock.start()
+      this.animate()
+    } else if (!data.isPlaying && this.rafId !== 0) {
+      cancelAnimationFrame(this.rafId)
+      this.rafId = 0
+    }
   }
 
   setMode(mode: VisualMode) {

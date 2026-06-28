@@ -18,7 +18,7 @@ const LABELS: Record<Phase, string> = {
 }
 
 export function URLInput({ apiKey, onResult, onError }: Props) {
-  const [input, setInput] = useState('')
+  const [input, setInput] = useState('https://youtu.be/HNqyA0zC894?si=KVOyElLI3IEh49di')
   const [phase, setPhase] = useState<Phase>('idle')
 
   const run = async () => {

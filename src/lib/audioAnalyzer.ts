@@ -62,6 +62,10 @@ export class AudioAnalyzer {
     return !this.audio.paused
   }
 
+  getCurrentTime(): number {
+    return this.audio.currentTime
+  }
+
   dispose() {
     this.audio.pause()
     URL.revokeObjectURL(this.objectUrl)

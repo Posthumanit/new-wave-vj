@@ -6,6 +6,10 @@ export interface MoodData {
   colors: [string, string, string]
   description: string
   imagePrompt: string
+  title: string
+  artist: string
+  album: string
+  year: string
 }
 
 export interface AudioData {

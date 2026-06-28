@@ -28,5 +28,6 @@ export function useAudioAnalyzer(source: File | Blob | null) {
   }, [source])
 
   const toggle = useCallback(() => analyzerRef.current?.toggle(), [])
-  return { data, toggle }
+  const getCurrentTime = useCallback(() => analyzerRef.current?.getCurrentTime() ?? null, [])
+  return { data, toggle, getCurrentTime }
 }

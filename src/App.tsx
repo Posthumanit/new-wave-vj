@@ -5,8 +5,11 @@ import { AudioUpload } from './components/AudioUpload'
 import { Visualizer } from './components/Visualizer'
 import { Controls } from './components/Controls'
 import { YouTubePlayer, type YouTubePlayerHandle } from './components/YouTubePlayer'
+import { NowPlayingHeader } from './components/NowPlayingHeader'
+import { LyricsOverlay } from './components/LyricsOverlay'
 import { useAudioAnalyzer } from './hooks/useAudioAnalyzer'
 import { useTabAudio } from './hooks/useTabAudio'
+import { useLyricsSync } from './hooks/useLyricsSync'
 import { generateImage } from './lib/gemini'
 import { BpmSimulator } from './lib/bpmSimulator'
 import { SILENT_AUDIO } from './lib/audioMath'
@@ -32,7 +35,7 @@ export default function App() {
   const [error, setError] = useState('')
   const ytRef = useRef<YouTubePlayerHandle | null>(null)
 
-  const { data: realAudioData, toggle: toggleAudio } = useAudioAnalyzer(audioSource)
+  const { data: realAudioData, toggle: toggleAudio, getCurrentTime: getFileCurrentTime } = useAudioAnalyzer(audioSource)
   const tabAudio = useTabAudio()
 
   useEffect(() => {
@@ -51,6 +54,19 @@ export default function App() {
   }, [tabAudio.active])
 
   const audioData = tabAudio.active ? tabAudio.data : audioSource ? realAudioData : useBpm ? bpmData : SILENT_AUDIO
+
+  const getPlaybackTime = useCallback((): number | null => {
+    if (audioSource && !tabAudio.active) return getFileCurrentTime()
+    if (!tabAudio.active && !audioSource && useBpm && videoId) return ytRef.current?.getCurrentTime() ?? null
+    return null
+  }, [audioSource, tabAudio.active, useBpm, videoId, getFileCurrentTime])
+
+  const lyrics = useLyricsSync({
+    artist: moodData?.artist ?? '',
+    title: moodData?.title ?? '',
+    isPlaying: audioData.isPlaying,
+    getPlaybackTime,
+  })
 
   const handleApiKey = (key: string) => {
     localStorage.setItem('nwvj-api-key', key)
@@ -102,6 +118,8 @@ export default function App() {
       {isPlaying && (
         <div style={{ position: 'absolute', inset: 0 }}>
           <Visualizer audioData={audioData} moodData={moodData} backgroundImage={bgImage} mode={mode} />
+          {moodData && <NowPlayingHeader mood={moodData} />}
+          <LyricsOverlay lines={lyrics.lines} currentIndex={lyrics.currentIndex} onNudge={lyrics.nudge} />
           <Controls
             mode={mode} onMode={setMode}
             isPlaying={audioData.isPlaying}

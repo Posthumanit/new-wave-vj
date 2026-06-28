@@ -10,6 +10,10 @@ const DEFAULT_MOOD: MoodData = {
   description: 'High-energy electronic music with pulsing synthesizers',
   imagePrompt:
     'Abstract psychedelic digital art, neon pink and cyan laser beams, fractal geometry, music visualizer aesthetic, dark background, 80s synthwave',
+  title: '',
+  artist: '',
+  album: '',
+  year: '',
 }
 
 export async function analyzeMood(apiKey: string, input: string): Promise<MoodData> {
@@ -27,10 +31,14 @@ Respond with ONLY a valid JSON object — no markdown, no explanation:
   "genre": "one of: electronic|rock|pop|jazz|classical|hip-hop|ambient|metal|synthwave|house|techno",
   "colors": ["#hex1", "#hex2", "#hex3"],
   "description": "One sentence describing the musical atmosphere",
-  "imagePrompt": "Detailed visual description for abstract psychedelic background art matching this music"
+  "imagePrompt": "Detailed visual description for abstract psychedelic background art matching this music",
+  "title": "Best-guess song title, or empty string if you can't identify the specific track",
+  "artist": "Best-guess artist/band name, or empty string if unknown",
+  "album": "Best-guess album name, or empty string if unknown",
+  "year": "Best-guess release year as a string, or empty string if unknown"
 }
 
-bpm must be a realistic integer tempo for this genre/song. colors must be 3 hex values evoking the mood. imagePrompt describes surreal abstract VJ visuals — no text, no people.`
+bpm must be a realistic integer tempo for this genre/song. colors must be 3 hex values evoking the mood. imagePrompt describes surreal abstract VJ visuals — no text, no people. Only fill title/artist/album/year when you actually recognize the specific track — never invent plausible-sounding metadata for a track you don't recognize.`
 
   try {
     const result = await ai.models.generateContent({
@@ -53,6 +61,10 @@ bpm must be a realistic integer tempo for this genre/song. colors must be 3 hex 
         : DEFAULT_MOOD.colors,
       description: parsed.description ?? DEFAULT_MOOD.description,
       imagePrompt: parsed.imagePrompt ?? DEFAULT_MOOD.imagePrompt,
+      title: typeof parsed.title === 'string' ? parsed.title : '',
+      artist: typeof parsed.artist === 'string' ? parsed.artist : '',
+      album: typeof parsed.album === 'string' ? parsed.album : '',
+      year: typeof parsed.year === 'string' ? parsed.year : '',
     }
   } catch {
     return DEFAULT_MOOD

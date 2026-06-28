@@ -5,6 +5,7 @@ interface YTPlayer {
   playVideo(): void
   pauseVideo(): void
   getPlayerState(): number
+  getCurrentTime(): number
   destroy(): void
 }
 interface YTPlayerOptions {
@@ -46,6 +47,7 @@ function loadYTApi(): Promise<void> {
 export interface YouTubePlayerHandle {
   play(): void
   pause(): void
+  getCurrentTime(): number
 }
 
 interface Props {
@@ -61,6 +63,7 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, Props>(
   useImperativeHandle(ref, () => ({
     play() { playerRef.current?.playVideo() },
     pause() { playerRef.current?.pauseVideo() },
+    getCurrentTime() { return playerRef.current?.getCurrentTime() ?? 0 },
   }))
 
   useEffect(() => {

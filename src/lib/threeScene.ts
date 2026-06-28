@@ -337,13 +337,16 @@ void main(){
   vec2  uv   = gl_PointCoord - .5;
   float dist = length(uv);
 
-  float core = 1. - smoothstep(0., .18, dist);
-  float glow = pow(1. - smoothstep(.1, .5, dist), 2.);
-  float alpha= (core * .9 + glow * .45) * vAlpha;
+  // Tight core edge (crisp dot) + a much smaller, faster-falloff glow so particles
+  // read as defined points instead of soft overlapping blobs.
+  float core = 1. - smoothstep(0., .1, dist);
+  float ring = 1. - smoothstep(.08, .22, dist);
+  float glow = pow(1. - smoothstep(.15, .42, dist), 3.);
+  float alpha= (ring * .95 + glow * .22) * vAlpha;
 
   if(alpha < .01) discard;
 
-  vec3 col = vColor + vColor * core * 1.8;
+  vec3 col = vColor + vColor * core * 1.1;
   gl_FragColor = vec4(col, alpha);
 }
 `

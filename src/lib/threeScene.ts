@@ -162,14 +162,15 @@ void main(){
     float w1 = sin(x*1.5 + uTime*2.)  * cos(z*1.5 + uTime*1.5) * uBass * 2.;
     float w2 = sin(x*3.  + z*2. + uTime*3.) * uMid * .6;
     float w3 = snoise(vec3(x*2., z*2., uTime)) * uTreble * .4;
-    float beat= sin(length(vec2(x,z))*2. - uTime*4.) * uBeat * 1.2;
-    float y   = w1 + w2 + w3 + beat;
+    float beat= sin(length(vec2(x,z))*2. - uTime*4.) * uBeat * 2.2;
+    // beat scales the whole surface AND lifts it uniformly, so a hit reads as one big bump
+    float y   = (w1 + w2 + w3) * (1. + uBeat * .9) + beat + uBeat * 1.4;
 
     pos   = vec3(x, y, z);
     float hn = clamp((y + 2.5)/5., 0., 1.);
     color = mix(uColor1, uColor2, hn);
     color = mix(color, uColor3, uBeat * .6);
-    size  = 1.5 + abs(y)*.4 + uBeat * 2.5;
+    size  = 1.5 + abs(y)*.4 + uBeat * 4.;
 
   // ── MODE 4 : EQUALIZER BARS ───────────────────────────────────────────────
   }else if(uMode < 4.5){
@@ -216,13 +217,14 @@ void main(){
     float d    = length(vec2(x,z));
 
     float plasma = sin(x*1.2+uTime) + sin(z*1.2-uTime) + sin(d*1.5-uTime*1.4) + sin((x+z)*.8+uTime*.6);
-    float y = plasma * (.4 + uBass*.5) + uBeat*.6;
+    // beat scales the plasma amplitude AND lifts it, so a hit punches the whole field upward
+    float y = plasma * (.4 + uBass*.5) * (1. + uBeat * 1.4) + uBeat * 1.6;
 
     pos = vec3(x, y, z);
     float pn = (plasma + 4.)/8.;
     color = mix(uColor1, uColor2, pn);
     color = mix(color, uColor3, uMid*.5);
-    size  = 1.5 + abs(plasma)*.6 + uBeat*2.;
+    size  = 1.5 + abs(plasma)*.6 + uBeat*3.5;
 
   // ── MODE 7 : STARFIELD WARP ───────────────────────────────────────────────
   }else if(uMode < 7.5){
@@ -310,6 +312,9 @@ void main(){
     color *= max(fade, .15);
     size  = (2. + uBeat*3.) * fade;
   }
+
+  // Global beat punch: a small uniform scale on top of each mode's own reaction
+  pos *= 1. + uBeat * 0.18;
 
   // Treble shimmer on color brightness
   vColor = color * (1. + uTreble * r * .6);

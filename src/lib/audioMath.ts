@@ -35,10 +35,10 @@ export function computeBands(dataArray: Uint8Array, sampleRate: number, fftSize:
 
   const energy = bass * 1.8 + mid * 0.6
   const avgEnergy = state.energyHistory.reduce((a, b) => a + b, 0) / state.energyHistory.length
-  if (energy > avgEnergy * 1.4 && energy > 0.25) {
+  if (energy > avgEnergy * 1.3 && energy > 0.2) {
     state.beat = Math.min(energy / (avgEnergy + 0.001), 1)
   }
-  state.beat *= 0.82
+  state.beat *= 0.87
   state.energyHistory.push(energy)
   state.energyHistory.shift()
 

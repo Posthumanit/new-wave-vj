@@ -24,7 +24,7 @@ export class BpmSimulator {
 
     if (phase < this.prevPhase) this.beat = this.energy  // phase wrapped → new beat
     this.prevPhase = phase
-    this.beat *= 0.82
+    this.beat *= 0.87
 
     const bass = Math.min(Math.pow(Math.max(0, 1 - phase * 2.5), 2) * this.energy, 1)
     const midPhase = (elapsed % (interval / 2)) / (interval / 2)

@@ -90,7 +90,7 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, Props>(
     <div
       style={{
         position: 'absolute',
-        bottom: 100,
+        top: 12,
         right: 12,
         width: 160,
         height: 90,

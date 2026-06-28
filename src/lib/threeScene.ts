@@ -1,7 +1,9 @@
 import * as THREE from 'three'
 import type { AudioData, VisualMode } from '../types'
+import { SILENT_AUDIO } from './audioMath'
 
 const PARTICLE_COUNT = 10_000
+const SPECTRUM_BINS = 32
 
 // ─── Vertex Shader ───────────────────────────────────────────────────────────
 const VERT = /* glsl */ `
@@ -19,6 +21,7 @@ uniform float uMode;
 uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform vec3 uColor3;
+uniform float uSpectrum[32];
 
 varying vec3 vColor;
 varying float vAlpha;
@@ -149,7 +152,7 @@ void main(){
     size  = 1.5 + uBeat * 3. + uTreble * r * 2.5;
 
   // ── MODE 3 : WAVE GRID ────────────────────────────────────────────────────
-  }else{
+  }else if(uMode < 3.5){
     float cols = 100.;
     float col  = mod(i * float(${PARTICLE_COUNT}), cols);
     float row  = floor(i * float(${PARTICLE_COUNT}) / cols);
@@ -167,6 +170,145 @@ void main(){
     color = mix(uColor1, uColor2, hn);
     color = mix(color, uColor3, uBeat * .6);
     size  = 1.5 + abs(y)*.4 + uBeat * 2.5;
+
+  // ── MODE 4 : EQUALIZER BARS ───────────────────────────────────────────────
+  }else if(uMode < 4.5){
+    float BINS = 32.;
+    float bin     = floor(i * BINS);
+    float binFrac = fract(i * BINS);
+    float spec    = uSpectrum[int(bin)];
+    float barW    = 8. / BINS;
+    float x = (bin/BINS - .5) * 8. + barW*.5;
+    float h = spec * 6. + .05;
+    float y = binFrac * h - h*.5 - 1.5;
+    float z = (r - .5) * .6;
+
+    pos   = vec3(x, y, z);
+    color = mix(uColor1, uColor2, bin/BINS);
+    color = mix(color, uColor3, spec*.5);
+    size  = 2. + spec*4. + uBeat*2.;
+
+  // ── MODE 5 : MANDALA ──────────────────────────────────────────────────────
+  }else if(uMode < 5.5){
+    float PETALS = 8.;
+    float ring    = floor(i * 40.);
+    float ringT   = fract(i * 40.);
+    float petalAngle = floor(r * PETALS) * (TWO_PI/PETALS);
+    float radius  = (ring/40.) * (3. + uBass*2.);
+    float wobble  = sin(ringT*TWO_PI*3. + uTime*2. + ring*.3) * uMid * .6;
+    float angle   = petalAngle + ringT*TWO_PI*.15 + uTime*.3 + wobble*.2;
+    float rad     = radius + wobble;
+
+    pos = vec3(cos(angle)*rad, sin(angle)*rad, sin(ring*.5+uTime)*uTreble*.8);
+    pos *= 1. + uBeat*.25;
+
+    color = mix(uColor1, uColor2, ringT);
+    color = mix(color, uColor3, sin(ring*.2+uTime)*.5+.5);
+    size  = 2. + uBeat*4. + uTreble*r*3.;
+
+  // ── MODE 6 : PLASMA FIELD ─────────────────────────────────────────────────
+  }else if(uMode < 6.5){
+    float cols = 100.;
+    float col  = mod(i * float(${PARTICLE_COUNT}), cols);
+    float row  = floor(i * float(${PARTICLE_COUNT}) / cols);
+    float x    = (col/cols - .5) * 8.;
+    float z    = (row/cols - .5) * 8.;
+    float d    = length(vec2(x,z));
+
+    float plasma = sin(x*1.2+uTime) + sin(z*1.2-uTime) + sin(d*1.5-uTime*1.4) + sin((x+z)*.8+uTime*.6);
+    float y = plasma * (.4 + uBass*.5) + uBeat*.6;
+
+    pos = vec3(x, y, z);
+    float pn = (plasma + 4.)/8.;
+    color = mix(uColor1, uColor2, pn);
+    color = mix(color, uColor3, uMid*.5);
+    size  = 1.5 + abs(plasma)*.6 + uBeat*2.;
+
+  // ── MODE 7 : STARFIELD WARP ───────────────────────────────────────────────
+  }else if(uMode < 7.5){
+    float speed = 6. + uBass*8.;
+    float z     = mod(i * 40. - uTime * speed, 40.) - 20.;
+    float depth = (z + 20.)/40.;
+    float angle = r * TWO_PI + i*3.;
+    float rad   = (1.-depth) * .3 + depth * 4.5 + uMid*1.5;
+
+    pos = vec3(cos(angle)*rad, sin(angle)*rad, z);
+
+    color = mix(uColor3, uColor1, depth);
+    color = mix(color, uColor2, uTreble*.4);
+    size  = (1.-depth)*6. + 1. + uBeat*3.;
+
+  // ── MODE 8 : SPECTRUM RING ────────────────────────────────────────────────
+  }else if(uMode < 8.5){
+    float BINS = 32.;
+    float bin     = floor(i * BINS);
+    float binFrac = fract(i * BINS);
+    float spec    = uSpectrum[int(bin)];
+    float angle   = (bin/BINS) * TWO_PI + uTime*.2;
+    float innerR  = 1.8;
+    float barLen  = spec * 3.2 + .05;
+    float rad     = innerR + binFrac * barLen;
+
+    pos = vec3(cos(angle)*rad, sin(angle)*rad, sin(bin*.5+uTime)*uBass*.6);
+
+    color = mix(uColor1, uColor2, bin/BINS);
+    color = mix(color, uColor3, spec*.6);
+    size  = 2. + spec*4. + uBeat*2.;
+
+  // ── MODE 9 : LISSAJOUS SCOPE ───────────────────────────────────────────────
+  }else if(uMode < 9.5){
+    float a = 2. + floor(uBass*3.);
+    float b = 3. + floor(uMid*3.);
+    float t = i * TWO_PI * 4. + uTime*.5;
+
+    vec2 curve = vec2(sin(a*t), sin(b*t + uTreble*PI)) * (2.2 + uBeat*.8);
+    float thickness = (r-.5) * .25 * (1.+uBeat);
+
+    pos = vec3(curve.x + thickness, curve.y, sin(t*.3)*1.2);
+
+    color = mix(uColor1, uColor2, sin(t)*.5+.5);
+    color = mix(color, uColor3, uTreble*.5);
+    size  = 2. + uBeat*4.;
+
+  // ── MODE 10 : DNA HELIX ───────────────────────────────────────────────────
+  }else if(uMode < 10.5){
+    float strand = step(.5, r);
+    float twist  = i * float(${PARTICLE_COUNT}) * .04 + uTime;
+    float y      = (i - .5) * 12.;
+    float angle  = twist + strand*PI;
+    float rad    = 1.4 + uMid*.8;
+
+    pos = vec3(cos(angle)*rad, y, sin(angle)*rad);
+    pos.xz *= 1. + uBeat*.3;
+
+    color = mix(uColor1, uColor3, strand);
+    color = mix(color, uColor2, uBass*.5);
+    size  = 2. + uBeat*3. + uTreble*r*3.;
+
+  // ── MODE 11 : FIREWORK BURST ──────────────────────────────────────────────
+  }else{
+    float cycle = 3.2;
+    float seed  = floor(i * 60.);
+    float burstOffset = hash11(seed) * cycle;
+    float life  = mod(uTime + burstOffset, cycle) / cycle;
+
+    float ha = hash11(seed*7.1 + 1.);
+    float he = hash11(seed*3.3 + 2.);
+    float burstAngle = ha * TWO_PI;
+    float elevation  = (he - .5) * PI;
+    vec3 dir = vec3(cos(burstAngle)*cos(elevation), sin(elevation), sin(burstAngle)*cos(elevation));
+
+    float speed = 4. + uBass*4.;
+    vec3 burstCenter = vec3(hash11(seed*5.)-.5, hash11(seed*9.)-.5, hash11(seed*11.)-.5) * 4.;
+
+    pos = burstCenter + dir * life * speed;
+    pos.y -= life*life*1.8;
+
+    float fade = 1. - life;
+    color = mix(uColor1, uColor2, hash11(seed*13.));
+    color = mix(color, uColor3, life);
+    color *= max(fade, .15);
+    size  = (2. + uBeat*3.) * fade;
   }
 
   // Treble shimmer on color brightness
@@ -210,7 +352,7 @@ export class ThreeScene {
   private rafId: number = 0
   private bgMesh: THREE.Mesh | null = null
   private resizeObserver: ResizeObserver
-  private audioData: AudioData = { bass: 0, mid: 0, treble: 0, beat: 0, isPlaying: false }
+  private audioData: AudioData = SILENT_AUDIO
 
   constructor(canvas: HTMLCanvasElement) {
     this.clock = new THREE.Clock()
@@ -266,6 +408,7 @@ export class ThreeScene {
         uMid:    { value: 0 },
         uTreble: { value: 0 },
         uMode:   { value: 0 },
+        uSpectrum: { value: new Array(SPECTRUM_BINS).fill(0) },
         uColor1: { value: new THREE.Color('#ff0080') },
         uColor2: { value: new THREE.Color('#00ffff') },
         uColor3: { value: new THREE.Color('#8000ff') },
@@ -308,10 +451,11 @@ export class ThreeScene {
     u.uMid.value    = this.audioData.mid
     u.uTreble.value = this.audioData.treble
     u.uBeat.value   = this.audioData.beat
+    u.uSpectrum.value = this.audioData.spectrum
 
-    // Gentle camera orbit; tighter in tunnel mode
+    // Gentle camera orbit; forward-facing in tunnel/starfield modes
     const mode = u.uMode.value as number
-    if (mode === 2) {
+    if (mode === 2 || mode === 7) {
       this.camera.position.set(0, 0, 5)
       this.camera.lookAt(0, 0, -10)
     } else {
@@ -338,8 +482,8 @@ export class ThreeScene {
 
   setMode(mode: VisualMode) {
     this.material.uniforms.uMode.value = mode
-    // Reset camera for tunnel mode
-    if (mode === 2) {
+    // Reset camera for forward-facing modes
+    if (mode === 2 || mode === 7) {
       this.camera.lookAt(0, 0, -10)
     }
   }

@@ -1,10 +1,18 @@
 import type { VisualMode } from '../types'
 
 const MODES: { label: string; icon: string }[] = [
-  { label: 'SPHERE', icon: '⚪' },
-  { label: 'GALAXY', icon: '🌀' },
-  { label: 'TUNNEL', icon: '⬛' },
-  { label: 'WAVE',   icon: '〰️' },
+  { label: 'SPHERE',  icon: '⚪' },
+  { label: 'GALAXY',  icon: '🌀' },
+  { label: 'TUNNEL',  icon: '⬛' },
+  { label: 'WAVE',    icon: '〰️' },
+  { label: 'EQ',      icon: '📊' },
+  { label: 'MANDALA', icon: '✴️' },
+  { label: 'PLASMA',  icon: '🔥' },
+  { label: 'STARS',   icon: '✨' },
+  { label: 'RING',    icon: '🎯' },
+  { label: 'SCOPE',   icon: '📈' },
+  { label: 'HELIX',   icon: '🧬' },
+  { label: 'BURST',   icon: '🎆' },
 ]
 
 interface Props {
@@ -50,13 +58,13 @@ export function Controls({ mode, onMode, isPlaying, onToggle, onReset, songName 
       )}
 
       {/* Mode buttons */}
-      <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
         {MODES.map((m, idx) => (
           <button
             key={m.label}
             className={`btn btn-ghost${mode === idx ? ' active' : ''}`}
             onClick={() => onMode(idx as VisualMode)}
-            style={{ flex: 1, padding: '8px 4px', fontSize: 10 }}
+            style={{ flexBasis: 'calc(25% - 6px)', flexGrow: 0, padding: '8px 2px', fontSize: 10 }}
           >
             {m.icon} {m.label}
           </button>

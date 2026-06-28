@@ -1,6 +1,5 @@
 import type { AudioData } from '../types'
-
-const SILENT: AudioData = { bass: 0, mid: 0, treble: 0, beat: 0, isPlaying: false }
+import { SILENT_AUDIO, SPECTRUM_SIZE } from './audioMath'
 
 export class BpmSimulator {
   private bpm: number
@@ -8,6 +7,7 @@ export class BpmSimulator {
   private startTime: number
   private beat: number = 0
   private prevPhase: number = 0
+  private spectrum: number[] = new Array(SPECTRUM_SIZE).fill(0)
 
   constructor(bpm: number, energy: number) {
     this.bpm = bpm
@@ -16,7 +16,7 @@ export class BpmSimulator {
   }
 
   getData(isActive: boolean): AudioData {
-    if (!isActive) return SILENT
+    if (!isActive) return SILENT_AUDIO
 
     const elapsed = (performance.now() - this.startTime) / 1000
     const interval = 60 / this.bpm
@@ -26,17 +26,19 @@ export class BpmSimulator {
     this.prevPhase = phase
     this.beat *= 0.82
 
-    const bass = Math.pow(Math.max(0, 1 - phase * 2.5), 2) * this.energy
+    const bass = Math.min(Math.pow(Math.max(0, 1 - phase * 2.5), 2) * this.energy, 1)
     const midPhase = (elapsed % (interval / 2)) / (interval / 2)
-    const mid = Math.pow(Math.max(0, 1 - midPhase * 2.5), 1.5) * this.energy * 0.55
-    const treble = (0.4 + 0.3 * Math.sin(elapsed * Math.PI * this.bpm / 30)) * this.energy * 0.45
+    const mid = Math.min(Math.pow(Math.max(0, 1 - midPhase * 2.5), 1.5) * this.energy * 0.55, 1)
+    const treble = Math.min((0.4 + 0.3 * Math.sin(elapsed * Math.PI * this.bpm / 30)) * this.energy * 0.45, 1)
+    const beat = Math.min(this.beat, 1)
 
-    return {
-      bass: Math.min(bass, 1),
-      mid: Math.min(mid, 1),
-      treble: Math.min(treble, 1),
-      beat: Math.min(this.beat, 1),
-      isPlaying: true,
+    for (let b = 0; b < SPECTRUM_SIZE; b++) {
+      const t = b / SPECTRUM_SIZE
+      const band = t < 0.33 ? bass : t < 0.66 ? mid : treble
+      const wobble = 0.5 + 0.5 * Math.sin(elapsed * 6 + b * 0.7)
+      this.spectrum[b] = Math.min(band * (0.5 + wobble * 0.6), 1)
     }
+
+    return { bass, mid, treble, beat, isPlaying: true, spectrum: this.spectrum }
   }
 }

@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { AudioAnalyzer } from '../lib/audioAnalyzer'
+import { SILENT_AUDIO } from '../lib/audioMath'
 import type { AudioData } from '../types'
 
-const SILENT: AudioData = { bass: 0, mid: 0, treble: 0, beat: 0, isPlaying: false }
-
 export function useAudioAnalyzer(source: File | Blob | null) {
-  const [data, setData] = useState<AudioData>(SILENT)
+  const [data, setData] = useState<AudioData>(SILENT_AUDIO)
   const analyzerRef = useRef<AudioAnalyzer | null>(null)
   const rafRef = useRef<number>(0)
 

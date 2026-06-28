@@ -1,16 +1,16 @@
 import type { AudioData } from '../types'
 import { computeBands, computeSpectrum, newBeatState, type BeatState } from './audioMath'
 
-export class AudioAnalyzer {
+export class TabAudioAnalyzer {
   private context: AudioContext
   private analyser: AnalyserNode
-  private source: MediaElementAudioSourceNode
-  private audio: HTMLAudioElement
+  private source: MediaStreamAudioSourceNode
+  private stream: MediaStream
   private dataArray: Uint8Array<ArrayBuffer>
   private beatState: BeatState
-  private objectUrl: string
 
-  constructor(file: File) {
+  constructor(stream: MediaStream) {
+    this.stream = stream
     this.context = new AudioContext()
     this.analyser = this.context.createAnalyser()
     this.analyser.fftSize = 2048
@@ -19,33 +19,10 @@ export class AudioAnalyzer {
     this.dataArray = new Uint8Array(this.analyser.frequencyBinCount) as Uint8Array<ArrayBuffer>
     this.beatState = newBeatState()
 
-    this.objectUrl = URL.createObjectURL(file)
-    this.audio = new Audio(this.objectUrl)
-    this.audio.loop = true
-    this.audio.crossOrigin = 'anonymous'
-
-    this.source = this.context.createMediaElementSource(this.audio)
+    this.source = this.context.createMediaStreamSource(stream)
     this.source.connect(this.analyser)
-    this.analyser.connect(this.context.destination)
-  }
-
-  async play() {
-    if (this.context.state === 'suspended') {
-      await this.context.resume()
-    }
-    await this.audio.play()
-  }
-
-  pause() {
-    this.audio.pause()
-  }
-
-  toggle() {
-    if (this.audio.paused) {
-      void this.play()
-    } else {
-      this.pause()
-    }
+    // Deliberately not connected to context.destination — the captured tab is
+    // already producing audible sound; routing it to output again would echo it.
   }
 
   getData(): AudioData {
@@ -55,16 +32,11 @@ export class AudioAnalyzer {
     )
     const spectrum = computeSpectrum(this.dataArray)
 
-    return { bass, mid, treble, beat, isPlaying: !this.audio.paused, spectrum }
-  }
-
-  isPlaying() {
-    return !this.audio.paused
+    return { bass, mid, treble, beat, isPlaying: true, spectrum }
   }
 
   dispose() {
-    this.audio.pause()
-    URL.revokeObjectURL(this.objectUrl)
+    this.stream.getTracks().forEach((t) => t.stop())
     void this.context.close()
   }
 }

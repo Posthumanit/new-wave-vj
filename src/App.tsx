@@ -6,11 +6,11 @@ import { Visualizer } from './components/Visualizer'
 import { Controls } from './components/Controls'
 import { YouTubePlayer, type YouTubePlayerHandle } from './components/YouTubePlayer'
 import { useAudioAnalyzer } from './hooks/useAudioAnalyzer'
+import { useTabAudio } from './hooks/useTabAudio'
 import { generateImage } from './lib/gemini'
 import { BpmSimulator } from './lib/bpmSimulator'
+import { SILENT_AUDIO } from './lib/audioMath'
 import type { AppState, AudioData, MoodData, VisualMode } from './types'
-
-const SILENT: AudioData = { bass: 0, mid: 0, treble: 0, beat: 0, isPlaying: false }
 
 export default function App() {
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('nwvj-api-key') ?? '')
@@ -24,7 +24,7 @@ export default function App() {
   const [audioSource, setAudioSource] = useState<Blob | null>(null)
   const [videoId, setVideoId] = useState<string | null>(null)
   const [useBpm, setUseBpm] = useState(false)
-  const [bpmData, setBpmData] = useState<AudioData>(SILENT)
+  const [bpmData, setBpmData] = useState<AudioData>(SILENT_AUDIO)
   const bpmRef = useRef<BpmSimulator | null>(null)
   const bpmRafRef = useRef<number>(0)
 
@@ -33,6 +33,7 @@ export default function App() {
   const ytRef = useRef<YouTubePlayerHandle | null>(null)
 
   const { data: realAudioData, toggle: toggleAudio } = useAudioAnalyzer(audioSource)
+  const tabAudio = useTabAudio()
 
   useEffect(() => {
     if (!useBpm || !moodData) return
@@ -45,7 +46,11 @@ export default function App() {
     return () => { cancelAnimationFrame(bpmRafRef.current); bpmRef.current = null }
   }, [useBpm, moodData])
 
-  const audioData = audioSource ? realAudioData : useBpm ? bpmData : SILENT
+  useEffect(() => {
+    if (tabAudio.active) setAppState('playing')
+  }, [tabAudio.active])
+
+  const audioData = tabAudio.active ? tabAudio.data : audioSource ? realAudioData : useBpm ? bpmData : SILENT_AUDIO
 
   const handleApiKey = (key: string) => {
     localStorage.setItem('nwvj-api-key', key)
@@ -64,11 +69,8 @@ export default function App() {
       if (audioBlob) {
         setAudioSource(audioBlob)
         setAppState('playing')
-      } else if (vid) {
-        // Cobalt failed but we have a YouTube video ID — play BPM visuals + embedded player
-        setUseBpm(true)
-        setAppState('playing')
       } else {
+        // No downloaded audio — let the user pick tab capture, upload, or BPM fallback
         setAppState('ready')
       }
 
@@ -85,6 +87,7 @@ export default function App() {
   const handleAudioFile = (file: File) => { setAudioSource(file); setUseBpm(false); setAppState('playing') }
   const handlePlayBpmOnly = () => { setUseBpm(true); setAppState('playing') }
   const handleReset = () => {
+    tabAudio.stop()
     setAudioSource(null); setUseBpm(false); setMoodData(null)
     setBgImage(null); setError(''); setVideoId(null); setAppState('input')
   }
@@ -102,16 +105,20 @@ export default function App() {
           <Controls
             mode={mode} onMode={setMode}
             isPlaying={audioData.isPlaying}
-            onToggle={audioSource ? toggleAudio : () => {
-              setUseBpm((v) => {
-                if (v) ytRef.current?.pause()
-                else ytRef.current?.play()
-                return !v
-              })
-            }}
+            onToggle={
+              tabAudio.active ? tabAudio.toggle
+                : audioSource ? toggleAudio
+                : () => {
+                  setUseBpm((v) => {
+                    if (v) ytRef.current?.pause()
+                    else ytRef.current?.play()
+                    return !v
+                  })
+                }
+            }
             onReset={handleReset} songName={songName}
           />
-          {!audioSource && videoId && (
+          {!tabAudio.active && !audioSource && useBpm && videoId && (
             <YouTubePlayer ref={ytRef} videoId={videoId} />
           )}
         </div>
@@ -156,11 +163,36 @@ export default function App() {
                 </div>
               </div>
 
+              <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div>
+                  <p className="label">Capture tab audio (recommended)</p>
+                  <p style={{ fontSize: 12, color: 'var(--text-dim)', lineHeight: 1.5 }}>
+                    Open the video in a new tab, play it there, then share that tab's audio for
+                    real, perfectly-synced visuals. Desktop Chrome or Edge only.
+                  </p>
+                </div>
+                {videoId && (
+                  <button
+                    className="btn btn-ghost"
+                    onClick={() => window.open(`https://www.youtube.com/watch?v=${videoId}`, '_blank')}
+                  >
+                    ↗ OPEN YOUTUBE IN NEW TAB
+                  </button>
+                )}
+                <button className="btn btn-primary" onClick={tabAudio.start}>
+                  🎙 CAPTURE TAB AUDIO
+                </button>
+                {tabAudio.error && (
+                  <p style={{ fontSize: 12, color: 'var(--error, #ff4466)' }}>{tabAudio.error}</p>
+                )}
+              </div>
+
               <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <div>
-                  <p className="label">Upload audio to sync visuals</p>
+                  <p className="label">Or upload an audio file</p>
                   <p style={{ fontSize: 12, color: 'var(--text-dim)', lineHeight: 1.5 }}>
-                    Upload the audio file for real-time beat detection, or launch with BPM-synced visuals only.
+                    Upload the audio file for real-time beat detection, or launch with approximate
+                    BPM-synced visuals only.
                   </p>
                 </div>
                 <AudioUpload onFile={handleAudioFile} />
@@ -170,7 +202,7 @@ export default function App() {
                   <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
                 </div>
                 <button className="btn btn-secondary" onClick={handlePlayBpmOnly}>
-                  ▶ LAUNCH WITH BPM VISUALS ({moodData.bpm} BPM)
+                  ▶ LAUNCH WITH BPM VISUALS ({moodData.bpm} BPM, approximate sync)
                 </button>
               </div>
 

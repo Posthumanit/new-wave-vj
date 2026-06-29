@@ -22,9 +22,11 @@ interface Props {
   onToggle: () => void
   onReset: () => void
   songName: string
+  onIdentify?: () => void
+  identifying?: boolean
 }
 
-export function Controls({ mode, onMode, isPlaying, onToggle, onReset, songName }: Props) {
+export function Controls({ mode, onMode, isPlaying, onToggle, onReset, songName, onIdentify, identifying }: Props) {
   return (
     <div
       style={{
@@ -87,6 +89,16 @@ export function Controls({ mode, onMode, isPlaying, onToggle, onReset, songName 
         >
           {isPlaying ? '⏸' : '▶'}
         </button>
+        {onIdentify && (
+          <button
+            className="btn btn-ghost"
+            onClick={onIdentify}
+            disabled={identifying}
+            style={{ fontSize: 12, padding: '10px 20px', opacity: identifying ? 0.6 : 1 }}
+          >
+            {identifying ? '◌ SCANNING…' : '🎵 IDENTIFY'}
+          </button>
+        )}
       </div>
     </div>
   )

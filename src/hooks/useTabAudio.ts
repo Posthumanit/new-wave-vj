@@ -11,11 +11,13 @@ export function useTabAudio() {
   const analyzerRef = useRef<TabAudioAnalyzer | null>(null)
   const rafRef = useRef<number>(0)
   const pausedRef = useRef(false)
+  const streamRef = useRef<MediaStream | null>(null)
 
   const stop = useCallback(() => {
     cancelAnimationFrame(rafRef.current)
     analyzerRef.current?.dispose()
     analyzerRef.current = null
+    streamRef.current = null
     pausedRef.current = false
     setActive(false)
     setData(SILENT_AUDIO)
@@ -27,6 +29,7 @@ export function useTabAudio() {
       const stream = await captureTabAudio()
       const analyzer = new TabAudioAnalyzer(stream)
       analyzerRef.current = analyzer
+      streamRef.current = stream
       pausedRef.current = false
       setActive(true)
 
@@ -46,5 +49,7 @@ export function useTabAudio() {
     pausedRef.current = !pausedRef.current
   }, [])
 
-  return { data, active, error, start, stop, toggle }
+  const getStream = useCallback(() => streamRef.current, [])
+
+  return { data, active, error, start, stop, toggle, getStream }
 }

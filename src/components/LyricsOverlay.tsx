@@ -1,32 +1,56 @@
+import type { CSSProperties } from 'react'
 import type { LyricLine } from '../lib/lyrics'
+import type { LyricsStatus } from '../hooks/useLyricsSync'
 
 interface Props {
   lines: LyricLine[] | null
+  status: LyricsStatus
   currentIndex: number
   onNudge: (delta: number) => void
 }
 
-export function LyricsOverlay({ lines, currentIndex, onNudge }: Props) {
-  if (!lines || !lines.length) return null
+const WRAP_STYLE: CSSProperties = {
+  position: 'absolute',
+  left: 0,
+  right: 0,
+  bottom: 215,
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: 6,
+  padding: '0 24px',
+  textAlign: 'center',
+  zIndex: 4,
+}
+
+export function LyricsOverlay({ lines, status, currentIndex, onNudge }: Props) {
+  if (status === 'idle') return null
+
+  if (status === 'loading') {
+    return (
+      <div style={WRAP_STYLE}>
+        <p style={{ fontSize: 12, color: 'var(--text-dim)', opacity: 0.6, pointerEvents: 'none' }}>
+          ♪ looking for synced lyrics…
+        </p>
+      </div>
+    )
+  }
+
+  if (status === 'not-found' || !lines || !lines.length) {
+    return (
+      <div style={WRAP_STYLE}>
+        <p style={{ fontSize: 12, color: 'var(--text-dim)', opacity: 0.6, pointerEvents: 'none' }}>
+          ♪ no synced lyrics found for this track
+        </p>
+      </div>
+    )
+  }
+
   const current = currentIndex >= 0 ? lines[currentIndex].text : ''
   const next = currentIndex + 1 < lines.length ? lines[currentIndex + 1].text : ''
 
   return (
-    <div
-      style={{
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        bottom: 215,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 6,
-        padding: '0 24px',
-        textAlign: 'center',
-        zIndex: 4,
-      }}
-    >
+    <div style={WRAP_STYLE}>
       <p
         style={{
           fontSize: 18,

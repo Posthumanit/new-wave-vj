@@ -8,8 +8,11 @@ interface Options {
   getPlaybackTime: () => number | null
 }
 
+export type LyricsStatus = 'idle' | 'loading' | 'found' | 'not-found'
+
 export function useLyricsSync({ artist, title, isPlaying, getPlaybackTime }: Options) {
   const [lines, setLines] = useState<LyricLine[] | null>(null)
+  const [status, setStatus] = useState<LyricsStatus>('idle')
   const [currentIndex, setCurrentIndex] = useState(-1)
   const [offset, setOffset] = useState(0)
 
@@ -24,11 +27,14 @@ export function useLyricsSync({ artist, title, isPlaying, getPlaybackTime }: Opt
     setCurrentIndex(-1)
     approxElapsed.current = 0
     lastTick.current = null
-    if (!artist && !title) return
+    if (!artist && !title) { setStatus('idle'); return }
 
+    setStatus('loading')
     let cancelled = false
     fetchSyncedLyrics(artist, title).then((result) => {
-      if (!cancelled) setLines(result)
+      if (cancelled) return
+      setLines(result)
+      setStatus(result && result.length ? 'found' : 'not-found')
     })
     return () => { cancelled = true }
   }, [artist, title])
@@ -68,5 +74,5 @@ export function useLyricsSync({ artist, title, isPlaying, getPlaybackTime }: Opt
 
   const nudge = useCallback((delta: number) => setOffset((o) => o + delta), [])
 
-  return { lines, currentIndex, offset, nudge }
+  return { lines, status, currentIndex, offset, nudge }
 }

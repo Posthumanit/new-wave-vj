@@ -7,12 +7,14 @@ import { Controls } from './components/Controls'
 import { YouTubePlayer, type YouTubePlayerHandle } from './components/YouTubePlayer'
 import { NowPlayingHeader } from './components/NowPlayingHeader'
 import { LyricsOverlay } from './components/LyricsOverlay'
+import { IdentifyTokenForm } from './components/IdentifyTokenForm'
 import { useAudioAnalyzer } from './hooks/useAudioAnalyzer'
 import { useTabAudio } from './hooks/useTabAudio'
 import { useLyricsSync } from './hooks/useLyricsSync'
 import { generateImage } from './lib/gemini'
 import { BpmSimulator } from './lib/bpmSimulator'
 import { SILENT_AUDIO } from './lib/audioMath'
+import { recognizeBlob, recognizeStream } from './lib/audioFingerprint'
 import type { AppState, AudioData, MoodData, VisualMode } from './types'
 
 export default function App() {
@@ -34,6 +36,11 @@ export default function App() {
   const [mode, setMode] = useState<VisualMode>(0)
   const [error, setError] = useState('')
   const ytRef = useRef<YouTubePlayerHandle | null>(null)
+
+  const [auddToken, setAuddToken] = useState(() => localStorage.getItem('nwvj-audd-token') ?? '')
+  const [showTokenPrompt, setShowTokenPrompt] = useState(false)
+  const [identifying, setIdentifying] = useState(false)
+  const [identifyError, setIdentifyError] = useState('')
 
   const { data: realAudioData, toggle: toggleAudio, getCurrentTime: getFileCurrentTime } = useAudioAnalyzer(audioSource)
   const tabAudio = useTabAudio()
@@ -99,6 +106,49 @@ export default function App() {
     [apiKey],
   )
 
+  const runIdentify = useCallback(
+    async (token: string) => {
+      setIdentifying(true)
+      setIdentifyError('')
+      try {
+        const recognized = tabAudio.active
+          ? await recognizeStream(tabAudio.getStream() ?? new MediaStream(), token)
+          : audioSource
+            ? await recognizeBlob(audioSource, token)
+            : null
+
+        if (!recognized) {
+          setIdentifyError('No match found')
+          return
+        }
+        setMoodData((m) => m && ({
+          ...m,
+          title: recognized.title || m.title,
+          artist: recognized.artist || m.artist,
+          album: recognized.album || m.album,
+          year: recognized.year || m.year,
+        }))
+      } catch (e) {
+        setIdentifyError(e instanceof Error ? e.message : 'Recognition failed')
+      } finally {
+        setIdentifying(false)
+      }
+    },
+    [tabAudio, audioSource],
+  )
+
+  const handleIdentify = useCallback(() => {
+    if (!auddToken) { setShowTokenPrompt(true); return }
+    void runIdentify(auddToken)
+  }, [auddToken, runIdentify])
+
+  const handleSaveToken = (token: string) => {
+    localStorage.setItem('nwvj-audd-token', token)
+    setAuddToken(token)
+    setShowTokenPrompt(false)
+    void runIdentify(token)
+  }
+
   const handleAnalysisError = useCallback((msg: string) => setError(msg), [])
   const handleAudioFile = (file: File) => { setAudioSource(file); setUseBpm(false); setAppState('playing') }
   const handlePlayBpmOnly = () => { setUseBpm(true); setAppState('playing') }
@@ -112,6 +162,7 @@ export default function App() {
   const songName = audioSource instanceof File
     ? audioSource.name.replace(/\.[^.]+$/, '')
     : (moodData?.description ?? '')
+  const canIdentify = tabAudio.active || audioSource != null
 
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
@@ -119,7 +170,7 @@ export default function App() {
         <div style={{ position: 'absolute', inset: 0 }}>
           <Visualizer audioData={audioData} moodData={moodData} backgroundImage={bgImage} mode={mode} />
           {moodData && <NowPlayingHeader mood={moodData} />}
-          <LyricsOverlay lines={lyrics.lines} currentIndex={lyrics.currentIndex} onNudge={lyrics.nudge} />
+          <LyricsOverlay lines={lyrics.lines} status={lyrics.status} currentIndex={lyrics.currentIndex} onNudge={lyrics.nudge} />
           <Controls
             mode={mode} onMode={setMode}
             isPlaying={audioData.isPlaying}
@@ -135,9 +186,42 @@ export default function App() {
                 }
             }
             onReset={handleReset} songName={songName}
+            onIdentify={canIdentify ? handleIdentify : undefined}
+            identifying={identifying}
           />
           {!tabAudio.active && !audioSource && useBpm && videoId && (
             <YouTubePlayer ref={ytRef} videoId={videoId} />
+          )}
+          {identifyError && (
+            <div style={{
+              position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)',
+              background: 'rgba(255,68,102,0.15)', border: '1px solid rgba(255,68,102,0.4)',
+              borderRadius: 4, padding: '8px 14px', fontSize: 12, color: 'var(--text-dim)', zIndex: 6,
+            }}>
+              {identifyError}
+              <button onClick={() => setIdentifyError('')} style={{ background: 'none', color: 'var(--text-dim)', marginLeft: 10, fontSize: 14 }}>×</button>
+            </div>
+          )}
+          {showTokenPrompt && (
+            <div style={{
+              position: 'absolute', inset: 0, background: 'rgba(10,10,15,0.85)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, padding: 16,
+            }}>
+              <div className="card" style={{ maxWidth: 420, width: '100%', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div>
+                  <p className="label">Song recognition</p>
+                  <h2 style={{ fontSize: 16, fontWeight: 700, letterSpacing: 1, marginBottom: 8 }}>AudD.io API TOKEN</h2>
+                  <p style={{ fontSize: 12, color: 'var(--text-dim)', lineHeight: 1.6 }}>
+                    Scans a short clip of the actual audio to confirm the real title/artist —
+                    no more guessing. Get a free token (300 lifetime scans) at{' '}
+                    <a href="https://dashboard.audd.io" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--cyan)' }}>
+                      dashboard.audd.io
+                    </a>. Stored locally, never sent anywhere else.
+                  </p>
+                </div>
+                <IdentifyTokenForm onSave={handleSaveToken} onCancel={() => setShowTokenPrompt(false)} />
+              </div>
+            </div>
           )}
         </div>
       )}

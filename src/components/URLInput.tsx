@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { analyzeMood } from '../lib/gemini'
 import { fetchYouTubeAudioBlob, extractVideoId } from '../lib/cobalt'
+import { fetchYoutubeOEmbed, deriveArtistTitle } from '../lib/youtubeMeta'
 import type { MoodData } from '../types'
 
 interface Props {
@@ -30,7 +31,7 @@ export function URLInput({ apiKey, onResult, onError }: Props) {
 
     setPhase('analyzing')
     try {
-      // Mood analysis always runs; audio fetch runs in parallel for YouTube URLs
+      // Mood analysis always runs; audio fetch and oEmbed metadata run in parallel for YouTube URLs
       const moodPromise = analyzeMood(apiKey, val)
       const audioPromise: Promise<Blob | null> = isYtUrl
         ? fetchYouTubeAudioBlob(val).catch((e: unknown) => {
@@ -38,11 +39,22 @@ export function URLInput({ apiKey, onResult, onError }: Props) {
             return null
           })
         : Promise.resolve(null)
+      const oembedPromise = isYtUrl && videoId ? fetchYoutubeOEmbed(videoId) : Promise.resolve(null)
 
       if (isYtUrl) setPhase('downloading')
 
-      const [mood, audioBlob] = await Promise.all([moodPromise, audioPromise])
-      onResult(mood, audioBlob, videoId)
+      const [mood, audioBlob, oembed] = await Promise.all([moodPromise, audioPromise, oembedPromise])
+
+      // Gemini only fills title/artist when it's confident — fall back to the
+      // actual YouTube video title/channel so the metadata header still shows up.
+      const fallback = oembed ? deriveArtistTitle(oembed) : null
+      const enrichedMood: MoodData = {
+        ...mood,
+        title: mood.title || fallback?.title || '',
+        artist: mood.artist || fallback?.artist || '',
+      }
+
+      onResult(enrichedMood, audioBlob, videoId)
     } catch (err) {
       onError(err instanceof Error ? err.message : 'Something went wrong')
     } finally {
